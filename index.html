@@ -20,6 +20,13 @@
         document.getElementById("stopButton").addEventListener("click", stopRecording);
 
         function startRecording() {
+            document.getElementById("status").innerText = "Requesting microphone access...";
+            
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                document.getElementById("status").innerText = "Your browser doesn't support audio recording.";
+                return;
+            }
+
             navigator.mediaDevices.getUserMedia({ audio: true })
                 .then(function(stream) {
                     audio_stream = stream;
@@ -36,19 +43,27 @@
                 })
                 .catch(function(err) {
                     console.error('Error accessing microphone:', err);
-                    document.getElementById("status").innerText = "Error: " + err.message;
+                    document.getElementById("status").innerText = "Error: " + err.name + " - " + err.message;
+                    // Log additional information
+                    console.log('getUserMedia supported:', !!navigator.mediaDevices.getUserMedia);
+                    console.log('MediaRecorder supported:', 'MediaRecorder' in window);
                 });
         }
 
         function stopRecording() {
-            recorder.stop();
-            audio_stream.getTracks().forEach(track => track.stop());
-            document.getElementById("recordButton").disabled = false;
-            document.getElementById("stopButton").disabled = true;
-            document.getElementById("status").innerText = "Processing...";
+            if (recorder && recorder.state !== 'inactive') {
+                recorder.stop();
+                audio_stream.getTracks().forEach(track => track.stop());
+                document.getElementById("recordButton").disabled = false;
+                document.getElementById("stopButton").disabled = true;
+                document.getElementById("status").innerText = "Processing...";
+            } else {
+                document.getElementById("status").innerText = "No active recording to stop.";
+            }
         }
 
         function uploadToGofile(audioBlob) {
+            document.getElementById("status").innerText = "Uploading...";
             const formData = new FormData();
             formData.append('file', audioBlob, 'recording.wav');
 
@@ -65,7 +80,7 @@
                     document.getElementById("recordButton").disabled = false;
                     document.getElementById("stopButton").disabled = true;
                 } else {
-                    throw new Error('Upload failed');
+                    throw new Error('Upload failed: ' + data.status);
                 }
             })
             .catch(error => {
@@ -73,6 +88,10 @@
                 document.getElementById("status").innerText = "Error uploading: " + error.message;
             });
         }
+
+        // Log initial support status
+        console.log('Initial getUserMedia support:', !!navigator.mediaDevices.getUserMedia);
+        console.log('Initial MediaRecorder support:', 'MediaRecorder' in window);
     </script>
 </body>
 </html>
