@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Voice Note Recorder</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
+        button { margin: 10px; padding: 10px 20px; font-size: 16px; }
+        #status { margin-top: 20px; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <button id="recordButton">Record</button>
+    <button id="stopButton" disabled>Stop</button>
+    <div id="status"></div>
+
+    <script>
+        let recorder, audio_stream;
+
+        document.getElementById("recordButton").addEventListener("click", startRecording);
+        document.getElementById("stopButton").addEventListener("click", stopRecording);
+
+        function startRecording() {
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(function(stream) {
+                    audio_stream = stream;
+                    recorder = new MediaRecorder(stream);
+
+                    recorder.ondataavailable = (e) => {
+                        uploadToGofile(e.data);
+                    };
+
+                    recorder.start();
+                    document.getElementById("recordButton").disabled = true;
+                    document.getElementById("stopButton").disabled = false;
+                    document.getElementById("status").innerText = "Recording...";
+                })
+                .catch(function(err) {
+                    console.error('Error accessing microphone:', err);
+                    document.getElementById("status").innerText = "Error: " + err.message;
+                });
+        }
+
+        function stopRecording() {
+            recorder.stop();
+            audio_stream.getTracks().forEach(track => track.stop());
+            document.getElementById("recordButton").disabled = false;
+            document.getElementById("stopButton").disabled = true;
+            document.getElementById("status").innerText = "Processing...";
+        }
+
+        function uploadToGofile(audioBlob) {
+            const formData = new FormData();
+            formData.append('file', audioBlob, 'recording.wav');
+
+            fetch('https://store1.gofile.io/uploadFile', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'ok') {
+                    const fileUrl = data.data.downloadPage;
+                    window.parent.postMessage({ url: fileUrl }, '*');
+                    document.getElementById("status").innerText = "Upload complete. You can record another note or close this window.";
+                    document.getElementById("recordButton").disabled = false;
+                    document.getElementById("stopButton").disabled = true;
+                } else {
+                    throw new Error('Upload failed');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.getElementById("status").innerText = "Error uploading: " + error.message;
+            });
+        }
+    </script>
+</body>
+</html>
