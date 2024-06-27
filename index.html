@@ -12,15 +12,18 @@
     <button id="recordButton">Record</button>
     <button id="stopButton" disabled>Stop</button>
     <div id="status"></div>
+    <audio id="audioPlayer" controls style="display:none;"></audio>
 
     <script>
         let recorder, audio_stream;
+        let audioPlayer = document.getElementById('audioPlayer');
 
         document.getElementById("recordButton").addEventListener("click", startRecording);
         document.getElementById("stopButton").addEventListener("click", stopRecording);
 
         function startRecording() {
             document.getElementById("status").innerText = "Requesting microphone access...";
+            audioPlayer.style.display = 'none';
             
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
                 document.getElementById("status").innerText = "Your browser doesn't support audio recording.";
@@ -32,8 +35,16 @@
                     audio_stream = stream;
                     recorder = new MediaRecorder(stream);
 
+                    let audioChunks = [];
                     recorder.ondataavailable = (e) => {
-                        uploadToGofile(e.data);
+                        audioChunks.push(e.data);
+                    };
+
+                    recorder.onstop = () => {
+                        const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                        audioPlayer.src = URL.createObjectURL(audioBlob);
+                        audioPlayer.style.display = 'block';
+                        uploadToGofile(audioBlob);
                     };
 
                     recorder.start();
@@ -75,7 +86,7 @@
                     if (data.status === 'ok') {
                         const fileUrl = data.data.downloadPage;
                         window.parent.postMessage({ url: fileUrl }, '*');
-                        document.getElementById("status").innerText = "Upload complete. You can record another note or close this window.";
+                        document.getElementById("status").innerText = "Upload complete. You can play, record another note, or close this window.";
                         document.getElementById("recordButton").disabled = false;
                         document.getElementById("stopButton").disabled = true;
                     } else {
