@@ -44,9 +44,6 @@
                 .catch(function(err) {
                     console.error('Error accessing microphone:', err);
                     document.getElementById("status").innerText = "Error: " + err.name + " - " + err.message;
-                    // Log additional information
-                    console.log('getUserMedia supported:', !!navigator.mediaDevices.getUserMedia);
-                    console.log('MediaRecorder supported:', 'MediaRecorder' in window);
                 });
         }
 
@@ -71,27 +68,29 @@
                 method: 'POST',
                 body: formData
             })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'ok') {
-                    const fileUrl = data.data.downloadPage;
-                    window.parent.postMessage({ url: fileUrl }, '*');
-                    document.getElementById("status").innerText = "Upload complete. You can record another note or close this window.";
-                    document.getElementById("recordButton").disabled = false;
-                    document.getElementById("stopButton").disabled = true;
-                } else {
-                    throw new Error('Upload failed: ' + data.status);
+            .then(response => response.text())
+            .then(text => {
+                try {
+                    const data = JSON.parse(text);
+                    if (data.status === 'ok') {
+                        const fileUrl = data.data.downloadPage;
+                        window.parent.postMessage({ url: fileUrl }, '*');
+                        document.getElementById("status").innerText = "Upload complete. You can record another note or close this window.";
+                        document.getElementById("recordButton").disabled = false;
+                        document.getElementById("stopButton").disabled = true;
+                    } else {
+                        throw new Error('Upload failed: ' + data.status);
+                    }
+                } catch (e) {
+                    console.error('Error parsing response:', text);
+                    throw new Error('Invalid response from server: ' + text);
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                document.getElementById("status").innerText = "Error uploading: " + error.message;
+                document.getElementById("status").innerText = "Error uploading: " + error.message + ". Please try again later.";
             });
         }
-
-        // Log initial support status
-        console.log('Initial getUserMedia support:', !!navigator.mediaDevices.getUserMedia);
-        console.log('Initial MediaRecorder support:', 'MediaRecorder' in window);
     </script>
 </body>
 </html>
